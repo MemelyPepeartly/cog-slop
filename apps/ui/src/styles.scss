@@ -72,6 +72,7 @@ body {
   display: grid;
   gap: 0.4rem;
   transition: transform 140ms ease, border-color 140ms ease;
+  min-width: 0;
 }
 
 .locker-card:hover {
@@ -81,13 +82,21 @@ body {
 
 .locker-card h3 {
   margin: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .locker-card-head {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  align-items: center;
+  align-items: flex-start;
+}
+
+.locker-card-head .gear-type {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .locker-chip {
@@ -96,12 +105,18 @@ body {
   border: 1px solid rgba(99, 219, 196, 0.46);
   background: rgba(99, 219, 196, 0.16);
   font-size: 0.76rem;
+  flex-shrink: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .locker-value {
   margin: 0;
   color: var(--muted);
   font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .locker-dossier {
@@ -117,12 +132,16 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 0.72rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .locker-dossier p {
   margin: 0.45rem 0 0;
   color: var(--muted);
   font-size: 0.86rem;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 @media (max-width: 1160px) {
