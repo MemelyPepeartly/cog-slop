@@ -4,10 +4,16 @@ import { Observable } from 'rxjs';
 import { appSettings } from '../app.settings';
 import {
   AdminUserSummary,
+  CogSession,
+  CraftGearPayload,
+  CraftGearReceipt,
+  CreateMarketplaceListingPayload,
   DashboardResponse,
   GrantCogsPayload,
   GrantGearPayload,
   InventoryItem,
+  MarketplaceListing,
+  MarketplacePurchaseReceipt,
   PurchaseReceipt,
   StoreItem,
   UpsertGearPayload
@@ -41,6 +47,59 @@ export class EconomyApiService {
       quantity
     }, {
       withCredentials: true
+    });
+  }
+
+  craftGear(payload: CraftGearPayload): Observable<CraftGearReceipt> {
+    return this.http.post<CraftGearReceipt>(`${this.baseUrl}/api/economy/craft`, payload, {
+      withCredentials: true
+    });
+  }
+
+  getMarketplaceListings(): Observable<MarketplaceListing[]> {
+    return this.http.get<MarketplaceListing[]>(`${this.baseUrl}/api/economy/marketplace/listings`, {
+      withCredentials: true
+    });
+  }
+
+  createMarketplaceListing(payload: CreateMarketplaceListingPayload): Observable<MarketplaceListing> {
+    return this.http.post<MarketplaceListing>(`${this.baseUrl}/api/economy/marketplace/listings`, payload, {
+      withCredentials: true
+    });
+  }
+
+  buyMarketplaceListing(marketplaceListingId: number): Observable<MarketplacePurchaseReceipt> {
+    return this.http.post<MarketplacePurchaseReceipt>(
+      `${this.baseUrl}/api/economy/marketplace/listings/${marketplaceListingId}/buy`,
+      {},
+      {
+        withCredentials: true
+      }
+    );
+  }
+
+  cogIn(note?: string | null): Observable<CogSession> {
+    return this.http.post<CogSession>(`${this.baseUrl}/api/economy/cog-sessions/in`, {
+      note: note ?? null
+    }, {
+      withCredentials: true
+    });
+  }
+
+  cogOut(note?: string | null): Observable<CogSession> {
+    return this.http.post<CogSession>(`${this.baseUrl}/api/economy/cog-sessions/out`, {
+      note: note ?? null
+    }, {
+      withCredentials: true
+    });
+  }
+
+  getCogSessionHistory(take = 50): Observable<CogSession[]> {
+    return this.http.get<CogSession[]>(`${this.baseUrl}/api/economy/cog-sessions/history`, {
+      withCredentials: true,
+      params: {
+        take
+      }
     });
   }
 
