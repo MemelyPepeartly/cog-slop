@@ -2,6 +2,7 @@ using System.Security.Claims;
 using CogSlop.Api.Data;
 using CogSlop.Api.Models.Dtos;
 using CogSlop.Api.Models.Entities;
+using CogSlop.Api.Models.Requests;
 using Microsoft.EntityFrameworkCore;
 
 namespace CogSlop.Api.Services;
@@ -21,7 +22,10 @@ public class EconomyService(
 
     public async Task<IReadOnlyList<StoreItemDto>> GetStoreItemsAsync(bool includeInactive, CancellationToken cancellationToken)
     {
-        var query = dbContext.GearItems.AsNoTracking();
+        var query = dbContext.GearItems
+            .AsNoTracking()
+            .Where(x => !x.IsPlayerCrafted);
+
         if (!includeInactive)
         {
             query = query.Where(x => x.IsActive);
@@ -58,7 +62,7 @@ public class EconomyService(
         await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         var gear = await dbContext.GearItems
-            .FirstOrDefaultAsync(x => x.GearItemId == gearItemId && x.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(x => x.GearItemId == gearItemId && x.IsActive && !x.IsPlayerCrafted, cancellationToken);
 
         if (gear is null)
         {
@@ -134,5 +138,382 @@ public class EconomyService(
                 inventory.Quantity,
                 gear.FlavorText,
                 gear.CostInCogs));
+    }
+
+    public async Task<CraftGearReceiptDto> CraftGearAsync(
+        ClaimsPrincipal principal,
+        CraftGearRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await currentUserService.EnsureUserAsync(principal, cancellationToken);
+        var name = request.Name.Trim();
+        var gearType = request.GearType.Trim();
+        var description = Normalize(request.Description);
+        var flavorText = Normalize(request.FlavorText);
+
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(gearType))
+        {
+            throw new InvalidOperationException("Crafting requires a valid gear name and type.");
+        }
+
+        var craftingCost = request.CraftingCostInCogs;
+        var currentBalance = await currentUserService.GetCogBalanceAsync(user.UserAccountId, cancellationToken);
+        if (currentBalance < craftingCost)
+        {
+            throw new InvalidOperationException("Not enough cogs in your pocket to craft this custom gear.");
+        }
+
+        var now = DateTime.UtcNow;
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        var craftedGear = new GearItem
+        {
+            Name = name,
+            Description = description,
+            GearType = gearType,
+            CostInCogs = craftingCost,
+            StockQuantity = null,
+            IsActive = false,
+            FlavorText = flavorText,
+            CraftedByUserAccountId = user.UserAccountId,
+            IsPlayerCrafted = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now,
+        };
+
+        var inventory = new UserInventory
+        {
+            UserAccountId = user.UserAccountId,
+            GearItem = craftedGear,
+            Quantity = 1,
+            LastGrantedAtUtc = now,
+        };
+
+        dbContext.UserInventories.Add(inventory);
+        dbContext.CogTransactions.Add(new CogTransaction
+        {
+            UserAccountId = user.UserAccountId,
+            Amount = -craftingCost,
+            TransactionType = CogTransactionTypes.Crafting,
+            Description = $"Crafted custom gear: {craftedGear.Name}",
+            CreatedAtUtc = now,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return new CraftGearReceiptDto(
+            $"Your custom cog-creation \"{craftedGear.Name}\" has been forged and added to your locker.",
+            craftingCost,
+            currentBalance - craftingCost,
+            new InventoryItemDto(
+                craftedGear.GearItemId,
+                craftedGear.Name,
+                craftedGear.GearType,
+                inventory.Quantity,
+                craftedGear.FlavorText,
+                craftedGear.CostInCogs));
+    }
+
+    public async Task<IReadOnlyList<MarketplaceListingDto>> GetMarketplaceListingsAsync(CancellationToken cancellationToken)
+    {
+        return await dbContext.MarketplaceListings
+            .AsNoTracking()
+            .Where(x => x.ListingStatus == MarketplaceListingStatuses.Open)
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Select(x => new MarketplaceListingDto(
+                x.MarketplaceListingId,
+                x.GearItemId,
+                x.GearItem.Name,
+                x.GearItem.GearType,
+                x.GearItem.FlavorText,
+                x.Quantity,
+                x.PriceInCogs,
+                x.SellerUserAccountId,
+                x.SellerUserAccount.DisplayName,
+                x.ListingStatus,
+                x.SellerNote,
+                x.CreatedAtUtc,
+                x.SoldAtUtc))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<MarketplaceListingDto> CreateMarketplaceListingAsync(
+        ClaimsPrincipal principal,
+        CreateMarketplaceListingRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await currentUserService.EnsureUserAsync(principal, cancellationToken);
+
+        var inventory = await dbContext.UserInventories
+            .Include(x => x.GearItem)
+            .FirstOrDefaultAsync(
+                x => x.UserAccountId == user.UserAccountId && x.GearItemId == request.GearItemId,
+                cancellationToken);
+
+        if (inventory is null)
+        {
+            throw new KeyNotFoundException("That gear is not in your locker.");
+        }
+
+        if (request.Quantity > inventory.Quantity)
+        {
+            throw new InvalidOperationException("You do not have enough quantity to post that listing.");
+        }
+
+        var now = DateTime.UtcNow;
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        inventory.Quantity -= request.Quantity;
+        if (inventory.Quantity == 0)
+        {
+            dbContext.UserInventories.Remove(inventory);
+        }
+
+        var listing = new MarketplaceListing
+        {
+            SellerUserAccountId = user.UserAccountId,
+            GearItemId = inventory.GearItemId,
+            Quantity = request.Quantity,
+            PriceInCogs = request.PriceInCogs,
+            ListingStatus = MarketplaceListingStatuses.Open,
+            SellerNote = Normalize(request.SellerNote),
+            CreatedAtUtc = now,
+        };
+
+        dbContext.MarketplaceListings.Add(listing);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return new MarketplaceListingDto(
+            listing.MarketplaceListingId,
+            listing.GearItemId,
+            inventory.GearItem.Name,
+            inventory.GearItem.GearType,
+            inventory.GearItem.FlavorText,
+            listing.Quantity,
+            listing.PriceInCogs,
+            listing.SellerUserAccountId,
+            user.DisplayName,
+            listing.ListingStatus,
+            listing.SellerNote,
+            listing.CreatedAtUtc,
+            listing.SoldAtUtc);
+    }
+
+    public async Task<MarketplacePurchaseReceiptDto> BuyMarketplaceListingAsync(
+        ClaimsPrincipal principal,
+        int marketplaceListingId,
+        CancellationToken cancellationToken)
+    {
+        var buyer = await currentUserService.EnsureUserAsync(principal, cancellationToken);
+
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        var listing = await dbContext.MarketplaceListings
+            .Include(x => x.GearItem)
+            .Include(x => x.SellerUserAccount)
+            .FirstOrDefaultAsync(x => x.MarketplaceListingId == marketplaceListingId, cancellationToken);
+
+        if (listing is null)
+        {
+            throw new KeyNotFoundException("This listing no longer exists.");
+        }
+
+        if (!string.Equals(listing.ListingStatus, MarketplaceListingStatuses.Open, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("This listing is no longer available.");
+        }
+
+        if (listing.SellerUserAccountId == buyer.UserAccountId)
+        {
+            throw new InvalidOperationException("You cannot buy your own listing.");
+        }
+
+        var buyerBalance = await currentUserService.GetCogBalanceAsync(buyer.UserAccountId, cancellationToken);
+        if (buyerBalance < listing.PriceInCogs)
+        {
+            throw new InvalidOperationException("Not enough cogs available for this marketplace purchase.");
+        }
+
+        var buyerInventory = await dbContext.UserInventories
+            .FirstOrDefaultAsync(
+                x => x.UserAccountId == buyer.UserAccountId && x.GearItemId == listing.GearItemId,
+                cancellationToken);
+
+        if (buyerInventory is null)
+        {
+            buyerInventory = new UserInventory
+            {
+                UserAccountId = buyer.UserAccountId,
+                GearItemId = listing.GearItemId,
+                Quantity = listing.Quantity,
+                LastGrantedAtUtc = DateTime.UtcNow,
+            };
+            dbContext.UserInventories.Add(buyerInventory);
+        }
+        else
+        {
+            buyerInventory.Quantity += listing.Quantity;
+            buyerInventory.LastGrantedAtUtc = DateTime.UtcNow;
+        }
+
+        listing.ListingStatus = MarketplaceListingStatuses.Sold;
+        listing.BuyerUserAccountId = buyer.UserAccountId;
+        listing.SoldAtUtc = DateTime.UtcNow;
+
+        dbContext.CogTransactions.Add(new CogTransaction
+        {
+            UserAccountId = buyer.UserAccountId,
+            Amount = -listing.PriceInCogs,
+            TransactionType = CogTransactionTypes.MarketplacePurchase,
+            Description = $"Bought {listing.Quantity} x {listing.GearItem.Name} from {listing.SellerUserAccount.DisplayName}",
+            GearItemId = listing.GearItemId,
+            CreatedAtUtc = DateTime.UtcNow,
+        });
+
+        dbContext.CogTransactions.Add(new CogTransaction
+        {
+            UserAccountId = listing.SellerUserAccountId,
+            Amount = listing.PriceInCogs,
+            TransactionType = CogTransactionTypes.MarketplaceSale,
+            Description = $"Sold {listing.Quantity} x {listing.GearItem.Name} to {buyer.DisplayName}",
+            GearItemId = listing.GearItemId,
+            CreatedAtUtc = DateTime.UtcNow,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return new MarketplacePurchaseReceiptDto(
+            $"Marketplace deal closed: {listing.Quantity} x {listing.GearItem.Name} transferred to your locker.",
+            listing.PriceInCogs,
+            buyerBalance - listing.PriceInCogs,
+            new InventoryItemDto(
+                listing.GearItemId,
+                listing.GearItem.Name,
+                listing.GearItem.GearType,
+                buyerInventory.Quantity,
+                listing.GearItem.FlavorText,
+                listing.GearItem.CostInCogs));
+    }
+
+    public async Task<CogSessionDto> CogInAsync(
+        ClaimsPrincipal principal,
+        CogInRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await currentUserService.EnsureUserAsync(principal, cancellationToken);
+        var now = DateTime.UtcNow;
+
+        var hasOpenSession = await dbContext.CogSessions
+            .AnyAsync(x => x.UserAccountId == user.UserAccountId && x.CogOutAtUtc == null, cancellationToken);
+
+        if (hasOpenSession)
+        {
+            throw new InvalidOperationException("You are already cogged in. Cog out before starting a new shift.");
+        }
+
+        var session = new CogSession
+        {
+            UserAccountId = user.UserAccountId,
+            CogInAtUtc = now,
+            CogInNote = Normalize(request.Note),
+        };
+
+        dbContext.CogSessions.Add(session);
+        dbContext.CogTransactions.Add(new CogTransaction
+        {
+            UserAccountId = user.UserAccountId,
+            Amount = 0,
+            TransactionType = CogTransactionTypes.CogIn,
+            Description = "Cogged in for a new shift.",
+            CreatedAtUtc = now,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ToCogSessionDto(session);
+    }
+
+    public async Task<CogSessionDto> CogOutAsync(
+        ClaimsPrincipal principal,
+        CogOutRequest request,
+        CancellationToken cancellationToken)
+    {
+        var user = await currentUserService.EnsureUserAsync(principal, cancellationToken);
+        var now = DateTime.UtcNow;
+
+        var session = await dbContext.CogSessions
+            .Where(x => x.UserAccountId == user.UserAccountId && x.CogOutAtUtc == null)
+            .OrderByDescending(x => x.CogInAtUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (session is null)
+        {
+            throw new InvalidOperationException("No active shift found. Cog in first.");
+        }
+
+        session.CogOutAtUtc = now;
+        session.CogOutNote = Normalize(request.Note);
+        var durationMinutes = CalculateDurationMinutes(session.CogInAtUtc, now);
+
+        dbContext.CogTransactions.Add(new CogTransaction
+        {
+            UserAccountId = user.UserAccountId,
+            Amount = 0,
+            TransactionType = CogTransactionTypes.CogOut,
+            Description = $"Cogged out after {durationMinutes} minute(s).",
+            CreatedAtUtc = now,
+        });
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return ToCogSessionDto(session);
+    }
+
+    public async Task<IReadOnlyList<CogSessionDto>> GetCogSessionHistoryAsync(
+        ClaimsPrincipal principal,
+        int take,
+        CancellationToken cancellationToken)
+    {
+        var user = await currentUserService.EnsureUserAsync(principal, cancellationToken);
+
+        return await dbContext.CogSessions
+            .AsNoTracking()
+            .Where(x => x.UserAccountId == user.UserAccountId)
+            .OrderByDescending(x => x.CogInAtUtc)
+            .Take(take)
+            .Select(x => new CogSessionDto(
+                x.CogSessionId,
+                x.CogInAtUtc,
+                x.CogOutAtUtc,
+                x.CogOutAtUtc == null ? null : EF.Functions.DateDiffMinute(x.CogInAtUtc, x.CogOutAtUtc.Value),
+                x.CogOutAtUtc == null,
+                x.CogInNote,
+                x.CogOutNote))
+            .ToListAsync(cancellationToken);
+    }
+
+    private static CogSessionDto ToCogSessionDto(CogSession session)
+    {
+        return new CogSessionDto(
+            session.CogSessionId,
+            session.CogInAtUtc,
+            session.CogOutAtUtc,
+            session.CogOutAtUtc == null ? null : CalculateDurationMinutes(session.CogInAtUtc, session.CogOutAtUtc.Value),
+            session.CogOutAtUtc == null,
+            session.CogInNote,
+            session.CogOutNote);
+    }
+
+    private static int CalculateDurationMinutes(DateTime startedAtUtc, DateTime endedAtUtc)
+    {
+        return Math.Max(0, (int)Math.Floor((endedAtUtc - startedAtUtc).TotalMinutes));
+    }
+
+    private static string? Normalize(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
 }

@@ -50,7 +50,10 @@ public class AdminService(
 
     public async Task<IReadOnlyList<StoreItemDto>> GetGearItemsAsync(bool includeInactive, CancellationToken cancellationToken)
     {
-        var query = dbContext.GearItems.AsNoTracking();
+        var query = dbContext.GearItems
+            .AsNoTracking()
+            .Where(x => !x.IsPlayerCrafted);
+
         if (!includeInactive)
         {
             query = query.Where(x => x.IsActive);
@@ -194,6 +197,8 @@ public class AdminService(
             StockQuantity = request.StockQuantity,
             IsActive = request.IsActive,
             FlavorText = request.FlavorText?.Trim(),
+            CraftedByUserAccountId = null,
+            IsPlayerCrafted = false,
             CreatedAtUtc = DateTime.UtcNow,
             UpdatedAtUtc = DateTime.UtcNow,
         };
@@ -215,7 +220,7 @@ public class AdminService(
     public async Task<StoreItemDto> UpdateGearItemAsync(int gearItemId, UpsertGearItemRequest request, CancellationToken cancellationToken)
     {
         var gear = await dbContext.GearItems
-            .FirstOrDefaultAsync(x => x.GearItemId == gearItemId, cancellationToken);
+            .FirstOrDefaultAsync(x => x.GearItemId == gearItemId && !x.IsPlayerCrafted, cancellationToken);
 
         if (gear is null)
         {
@@ -229,6 +234,8 @@ public class AdminService(
         gear.StockQuantity = request.StockQuantity;
         gear.IsActive = request.IsActive;
         gear.FlavorText = request.FlavorText?.Trim();
+        gear.IsPlayerCrafted = false;
+        gear.CraftedByUserAccountId = null;
         gear.UpdatedAtUtc = DateTime.UtcNow;
 
         await dbContext.SaveChangesAsync(cancellationToken);
