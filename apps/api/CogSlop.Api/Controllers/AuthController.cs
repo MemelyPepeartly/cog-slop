@@ -31,8 +31,8 @@ public class AuthController(
     {
         await currentUserService.EnsureUserAsync(User, cancellationToken);
 
-        var frontendBaseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:4200";
-        return Redirect($"{frontendBaseUrl.TrimEnd('/')}/");
+        var frontendBaseUrl = ResolveFrontendBaseUrl(configuration);
+        return Redirect($"{frontendBaseUrl}/");
     }
 
     [Authorize]
@@ -49,5 +49,19 @@ public class AuthController(
     {
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return Ok(new { message = "Cog clutch released. You are logged out." });
+    }
+
+    private static string ResolveFrontendBaseUrl(IConfiguration config)
+    {
+        var configured = config["Frontend:BaseUrl"] ?? "http://localhost:4200";
+
+        var firstOrigin = configured
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => x.TrimEnd('/'))
+            .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x));
+
+        return string.IsNullOrWhiteSpace(firstOrigin)
+            ? "http://localhost:4200"
+            : firstOrigin;
     }
 }

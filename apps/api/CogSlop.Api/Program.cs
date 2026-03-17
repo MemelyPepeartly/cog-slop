@@ -10,13 +10,24 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
-var frontendBaseUrl = builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:4200";
+var frontendOrigins = (builder.Configuration["Frontend:BaseUrl"] ?? "http://localhost:4200")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .Select(x => x.TrimEnd('/'))
+    .Where(x => !string.IsNullOrWhiteSpace(x))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
+
+if (frontendOrigins.Length == 0)
+{
+    frontendOrigins = ["http://localhost:4200"];
+}
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("UiClient", policy =>
     {
         policy
-            .WithOrigins(frontendBaseUrl)
+            .WithOrigins(frontendOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -45,6 +56,11 @@ builder.Services
         options.Cookie.Name = "cogslop.auth";
         options.Cookie.SameSite = SameSiteMode.None;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
         options.Events.OnRedirectToAccessDenied = context =>
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
