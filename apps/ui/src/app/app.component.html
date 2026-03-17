@@ -21,7 +21,6 @@
       </div>
 
       <div class="rail-actions">
-        <button type="button" class="btn btn-secondary" (click)="refreshAll()">Verify Session</button>
         <button *ngIf="!isAuthenticated" type="button" class="btn btn-primary" (click)="signIn()">Sign In</button>
         <button *ngIf="isAuthenticated" type="button" class="btn btn-ghost" (click)="signOut()">Sign Out</button>
       </div>
@@ -49,7 +48,6 @@
     <div class="rail-marquee">
       <p>COG COG COG COG COG COG COG COG COG COG COG COG COG COG COG COG</p>
     </div>
-    <small class="api-target">API target: {{ apiBaseUrl }}</small>
   </section>
 
   <header class="panel hero-bay">
@@ -61,7 +59,6 @@
         The only question is how many you'll have when the gears stop turning.
       </p>
       <div class="hero-actions">
-        <button type="button" class="btn btn-secondary" (click)="refreshAll()">Recalibrate</button>
         <button *ngIf="!isAuthenticated" type="button" class="btn btn-primary" (click)="signIn()">Enter The Economy</button>
       </div>
     </div>

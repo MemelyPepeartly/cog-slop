@@ -12,7 +12,6 @@ import {
   UpsertGearPayload,
   UserProfile
 } from './models/economy.models';
-import { appSettings } from './app.settings';
 import { EconomyApiService } from './services/economy-api.service';
 
 type CogPage = 'pilot' | 'shop' | 'locker' | 'admin';
@@ -26,7 +25,6 @@ type CogPage = 'pilot' | 'shop' | 'locker' | 'admin';
 })
 export class AppComponent implements OnInit {
   private readonly api = inject(EconomyApiService);
-  readonly apiBaseUrl = appSettings.apiBaseUrl;
 
   isLoading = true;
   isAuthenticated = false;
