@@ -7,6 +7,8 @@ GO
 USE [CogSlop];
 GO
 
+IF OBJECT_ID(N'dbo.MarketplaceListings', N'U') IS NOT NULL DROP TABLE [dbo].[MarketplaceListings];
+IF OBJECT_ID(N'dbo.CogSessions', N'U') IS NOT NULL DROP TABLE [dbo].[CogSessions];
 IF OBJECT_ID(N'dbo.CogTransactions', N'U') IS NOT NULL DROP TABLE [dbo].[CogTransactions];
 IF OBJECT_ID(N'dbo.UserInventories', N'U') IS NOT NULL DROP TABLE [dbo].[UserInventories];
 IF OBJECT_ID(N'dbo.UserRoles', N'U') IS NOT NULL DROP TABLE [dbo].[UserRoles];
@@ -59,9 +61,12 @@ CREATE TABLE [dbo].[GearItems]
     [StockQuantity] INT NULL,
     [IsActive] BIT NOT NULL CONSTRAINT [DF_GearItems_IsActive] DEFAULT (1),
     [FlavorText] NVARCHAR(300) NULL,
+    [CraftedByUserAccountId] INT NULL,
+    [IsPlayerCrafted] BIT NOT NULL CONSTRAINT [DF_GearItems_IsPlayerCrafted] DEFAULT (0),
     [CreatedAtUtc] DATETIME2(0) NOT NULL CONSTRAINT [DF_GearItems_CreatedAtUtc] DEFAULT SYSUTCDATETIME(),
     [UpdatedAtUtc] DATETIME2(0) NOT NULL CONSTRAINT [DF_GearItems_UpdatedAtUtc] DEFAULT SYSUTCDATETIME(),
     CONSTRAINT [PK_GearItems] PRIMARY KEY CLUSTERED ([GearItemId] ASC),
+    CONSTRAINT [FK_GearItems_CraftedByUserAccounts] FOREIGN KEY ([CraftedByUserAccountId]) REFERENCES [dbo].[UserAccounts]([UserAccountId]) ON DELETE SET NULL,
     CONSTRAINT [CK_GearItems_Cost] CHECK ([CostInCogs] >= 0),
     CONSTRAINT [CK_GearItems_Stock] CHECK ([StockQuantity] IS NULL OR [StockQuantity] >= 0)
 );
@@ -96,6 +101,43 @@ CREATE TABLE [dbo].[CogTransactions]
     CONSTRAINT [FK_CogTransactions_UserAccounts] FOREIGN KEY ([UserAccountId]) REFERENCES [dbo].[UserAccounts]([UserAccountId]) ON DELETE NO ACTION,
     CONSTRAINT [FK_CogTransactions_GearItems] FOREIGN KEY ([GearItemId]) REFERENCES [dbo].[GearItems]([GearItemId]) ON DELETE SET NULL,
     CONSTRAINT [FK_CogTransactions_GrantedByUserAccounts] FOREIGN KEY ([GrantedByUserAccountId]) REFERENCES [dbo].[UserAccounts]([UserAccountId]) ON DELETE SET NULL
+);
+GO
+
+CREATE TABLE [dbo].[CogSessions]
+(
+    [CogSessionId] INT IDENTITY(1,1) NOT NULL,
+    [UserAccountId] INT NOT NULL,
+    [CogInAtUtc] DATETIME2(0) NOT NULL,
+    [CogOutAtUtc] DATETIME2(0) NULL,
+    [CogInNote] NVARCHAR(300) NULL,
+    [CogOutNote] NVARCHAR(300) NULL,
+    CONSTRAINT [PK_CogSessions] PRIMARY KEY CLUSTERED ([CogSessionId] ASC),
+    CONSTRAINT [FK_CogSessions_UserAccounts] FOREIGN KEY ([UserAccountId]) REFERENCES [dbo].[UserAccounts]([UserAccountId]) ON DELETE CASCADE,
+    CONSTRAINT [CK_CogSessions_Order] CHECK ([CogOutAtUtc] IS NULL OR [CogOutAtUtc] >= [CogInAtUtc])
+);
+GO
+
+CREATE TABLE [dbo].[MarketplaceListings]
+(
+    [MarketplaceListingId] INT IDENTITY(1,1) NOT NULL,
+    [SellerUserAccountId] INT NOT NULL,
+    [BuyerUserAccountId] INT NULL,
+    [GearItemId] INT NOT NULL,
+    [Quantity] INT NOT NULL,
+    [PriceInCogs] INT NOT NULL,
+    [ListingStatus] NVARCHAR(30) NOT NULL,
+    [SellerNote] NVARCHAR(300) NULL,
+    [CreatedAtUtc] DATETIME2(0) NOT NULL CONSTRAINT [DF_MarketplaceListings_CreatedAtUtc] DEFAULT SYSUTCDATETIME(),
+    [SoldAtUtc] DATETIME2(0) NULL,
+    CONSTRAINT [PK_MarketplaceListings] PRIMARY KEY CLUSTERED ([MarketplaceListingId] ASC),
+    CONSTRAINT [FK_MarketplaceListings_SellerUserAccounts] FOREIGN KEY ([SellerUserAccountId]) REFERENCES [dbo].[UserAccounts]([UserAccountId]) ON DELETE NO ACTION,
+    CONSTRAINT [FK_MarketplaceListings_BuyerUserAccounts] FOREIGN KEY ([BuyerUserAccountId]) REFERENCES [dbo].[UserAccounts]([UserAccountId]) ON DELETE SET NULL,
+    CONSTRAINT [FK_MarketplaceListings_GearItems] FOREIGN KEY ([GearItemId]) REFERENCES [dbo].[GearItems]([GearItemId]) ON DELETE NO ACTION,
+    CONSTRAINT [CK_MarketplaceListings_Quantity] CHECK ([Quantity] > 0),
+    CONSTRAINT [CK_MarketplaceListings_PriceInCogs] CHECK ([PriceInCogs] > 0),
+    CONSTRAINT [CK_MarketplaceListings_Status] CHECK ([ListingStatus] IN (N'Open', N'Sold', N'Cancelled')),
+    CONSTRAINT [CK_MarketplaceListings_SoldAt] CHECK (([ListingStatus] <> N'Sold' AND [SoldAtUtc] IS NULL) OR ([ListingStatus] = N'Sold' AND [SoldAtUtc] IS NOT NULL))
 );
 GO
 
