@@ -147,4 +147,31 @@ public class EconomyController(IEconomyService economyService) : ControllerBase
         var history = await economyService.GetCogSessionHistoryAsync(User, boundedTake, cancellationToken);
         return Ok(history);
     }
+
+    [HttpGet("cog-sessions/status")]
+    public async Task<ActionResult<CogCheckStatusDto>> GetCogSessionStatus(CancellationToken cancellationToken)
+    {
+        var status = await economyService.GetCogCheckStatusAsync(User, cancellationToken);
+        return Ok(status);
+    }
+
+    [HttpPost("cog-sessions/check-in")]
+    public async Task<ActionResult<CogCheckStatusDto>> CompleteCogCheck(
+        [FromBody] CompleteCogCheckRequest? request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var status = await economyService.CompleteCogCheckAsync(
+                User,
+                request ?? new CompleteCogCheckRequest(),
+                cancellationToken);
+
+            return Ok(status);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

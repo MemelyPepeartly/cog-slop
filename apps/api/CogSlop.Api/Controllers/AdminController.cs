@@ -27,6 +27,13 @@ public class AdminController(IAdminService adminService) : ControllerBase
         return Ok(items);
     }
 
+    [HttpGet("cog-settings")]
+    public async Task<ActionResult<CogRuntimeSettingsDto>> GetCogSettings(CancellationToken cancellationToken)
+    {
+        var settings = await adminService.GetCogRuntimeSettingsAsync(cancellationToken);
+        return Ok(settings);
+    }
+
     [HttpPost("grant-cogs")]
     public async Task<ActionResult<AdminUserSummaryDto>> GrantCogs(
         [FromBody] GrantCogsRequest request,
@@ -86,6 +93,22 @@ public class AdminController(IAdminService adminService) : ControllerBase
         catch (KeyNotFoundException ex)
         {
             return NotFound(new { message = ex.Message });
+        }
+    }
+
+    [HttpPut("cog-settings/warning-interval")]
+    public async Task<ActionResult<CogRuntimeSettingsDto>> UpdateWarningInterval(
+        [FromBody] UpdateCogWarningIntervalRequest request,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var settings = await adminService.UpdateWarningIntervalAsync(User, request, cancellationToken);
+            return Ok(settings);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { message = ex.Message });
         }
     }
 }
