@@ -1,33 +1,64 @@
 <main class="workshop-shell">
-  <div class="orbit-ring orbit-ring--one"></div>
-  <div class="orbit-ring orbit-ring--two"></div>
+  <div class="cog-sky" aria-hidden="true">
+    <span class="cog cog--bg cog--bg-a cog-spin"></span>
+    <span class="cog cog--bg cog--bg-b cog-reverse"></span>
+    <span class="cog cog--bg cog--bg-c cog-spin"></span>
+  </div>
 
-  <section class="panel session-bar">
-    <div class="session-copy">
+  <section class="panel live-balance-dock">
+    <div class="dock-cogs" aria-hidden="true">
+      <span class="cog cog--small cog-spin"></span>
+      <span class="cog cog--medium cog-reverse"></span>
+    </div>
+
+    <div class="dock-status">
       <p class="session-kicker">Session Clutch</p>
       <h2>{{ isAuthenticated ? 'Signed In' : 'Signed Out' }}</h2>
       <p *ngIf="isAuthenticated && pilot as user">Pilot: {{ user.displayName }} ({{ user.email }})</p>
       <p *ngIf="!isAuthenticated">No active Google session detected.</p>
       <small>API target: {{ apiBaseUrl }}</small>
     </div>
+
+    <div class="live-meters">
+      <article class="meter">
+        <p>Live Cog Balance</p>
+        <strong>{{ liveCogBalance }}</strong>
+      </article>
+      <article class="meter" *ngIf="hasAdminPanel">
+        <p>Cogs In Circulation</p>
+        <strong>{{ cogCirculation }}</strong>
+      </article>
+      <article class="meter" *ngIf="hasAdminPanel">
+        <p>Pilots Tracked</p>
+        <strong>{{ adminHeadcount }}</strong>
+      </article>
+    </div>
+
     <div class="session-actions">
       <button type="button" class="btn btn-secondary" (click)="refreshAll()">Check Session</button>
       <button *ngIf="!isAuthenticated" type="button" class="btn btn-primary" (click)="signIn()">Sign In</button>
       <button *ngIf="isAuthenticated" type="button" class="btn btn-ghost" (click)="signOut()">Sign Out</button>
     </div>
   </section>
-  <header class="masthead panel">
-    <p class="eyebrow">Cog Slop</p>
-    <h1>Spin Up The Cog Economy</h1>
-    <p>
-      Every user is a gear in the grand machine. Admins tune the torque by granting cogs and specialty gear,
-      then pilots spend their cogs in the bazaar.
-    </p>
 
-    <div class="masthead-actions">
-      <button type="button" class="btn btn-secondary" (click)="refreshAll()">Recalibrate Deck</button>
-      <button *ngIf="isAuthenticated" type="button" class="btn btn-ghost" (click)="signOut()">Disengage</button>
-      <button *ngIf="!isAuthenticated" type="button" class="btn btn-primary" (click)="signIn()">Crank In With Google</button>
+  <header class="masthead panel">
+    <div class="masthead-copy">
+      <p class="eyebrow">Cog Slop</p>
+      <h1>Spin Up The Cog Economy</h1>
+      <p>
+        Every user is a gear in the grand machine. Admins tune the torque by granting cogs and specialty gear,
+        then pilots spend their cogs in the bazaar.
+      </p>
+      <div class="masthead-actions">
+        <button type="button" class="btn btn-secondary" (click)="refreshAll()">Recalibrate Deck</button>
+        <button *ngIf="!isAuthenticated" type="button" class="btn btn-primary" (click)="signIn()">Crank In With Google</button>
+      </div>
+    </div>
+
+    <div class="masthead-cogs" aria-hidden="true">
+      <span class="cog cog--large cog-spin"></span>
+      <span class="cog cog--medium cog-reverse"></span>
+      <span class="cog cog--small cog-spin"></span>
     </div>
   </header>
 
@@ -58,20 +89,24 @@
         <div>
           <h2>{{ user.displayName }}</h2>
           <p>{{ user.email }}</p>
+          <div class="role-pills">
+            <span class="role-pill" *ngFor="let role of user.roles">{{ role }}</span>
+          </div>
         </div>
       </div>
+
       <div class="stats-grid">
         <article>
           <h3>Cog Balance</h3>
           <p>{{ user.cogBalance }}</p>
         </article>
         <article>
-          <h3>Role Rack</h3>
-          <p>{{ user.roles.join(' / ') }}</p>
-        </article>
-        <article>
           <h3>Inventory Count</h3>
           <p>{{ user.inventory.length }}</p>
+        </article>
+        <article>
+          <h3>Admin Access</h3>
+          <p>{{ user.isAdmin ? 'Enabled' : 'Disabled' }}</p>
         </article>
       </div>
     </section>
@@ -111,11 +146,20 @@
     </section>
 
     <section *ngIf="hasAdminPanel" class="panel admin-panel">
-      <h2>Admin Control Sprocket</h2>
+      <header class="admin-header">
+        <div>
+          <p class="eyebrow">Command Deck</p>
+          <h2>Admin Control Center</h2>
+          <p>Fine-tune balances, launch grants, and keep the cog market calibrated.</p>
+        </div>
+      </header>
 
-      <div class="admin-layout">
-        <article class="admin-card">
-          <h3>Pilot Ledger</h3>
+      <div class="admin-grid">
+        <article class="admin-card ledger-card">
+          <div class="card-head">
+            <h3>Pilot Ledger</h3>
+            <span>{{ adminHeadcount }} pilots</span>
+          </div>
           <table>
             <thead>
               <tr>
@@ -128,14 +172,24 @@
               <tr *ngFor="let account of adminUsers">
                 <td>{{ account.displayName }}</td>
                 <td>{{ account.cogBalance }}</td>
-                <td>{{ account.roles.join(', ') }}</td>
+                <td>
+                  <div class="role-pills">
+                    <span class="role-pill" *ngFor="let role of account.roles">{{ role }}</span>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
         </article>
 
-        <article class="admin-card">
-          <h3>Grant Cogs</h3>
+        <article class="admin-card action-card">
+          <div class="card-head">
+            <h3>Cog Injector</h3>
+            <span>Balance Control</span>
+          </div>
+          <p class="target-balance" *ngIf="selectedGrantCogsTarget as target">
+            Target balance: <strong>{{ target.cogBalance }} cogs</strong>
+          </p>
           <label>
             User
             <select [(ngModel)]="grantCogsForm.userAccountId" name="grantCogsUser">
@@ -153,8 +207,14 @@
           <button type="button" class="btn btn-primary" (click)="grantCogs()">Inject Cogs</button>
         </article>
 
-        <article class="admin-card">
-          <h3>Grant Gear</h3>
+        <article class="admin-card action-card">
+          <div class="card-head">
+            <h3>Gear Launcher</h3>
+            <span>Inventory Control</span>
+          </div>
+          <p class="target-balance" *ngIf="selectedGrantGearTarget as target">
+            Target balance: <strong>{{ target.cogBalance }} cogs</strong>
+          </p>
           <label>
             User
             <select [(ngModel)]="grantGearForm.userAccountId" name="grantGearUser">
@@ -178,54 +238,68 @@
           <button type="button" class="btn btn-primary" (click)="grantGear()">Deploy Gear</button>
         </article>
 
-        <article class="admin-card admin-card--wide">
-          <h3>{{ editingGearItemId === null ? 'Forge New Gear' : 'Tune Existing Gear' }}</h3>
-          <div class="form-grid">
-            <label>
-              Name
-              <input type="text" [(ngModel)]="gearForm.name" maxlength="120" name="gearName" />
-            </label>
-            <label>
-              Type
-              <input type="text" [(ngModel)]="gearForm.gearType" maxlength="60" name="gearType" />
-            </label>
-            <label>
-              Cost In Cogs
-              <input type="number" [(ngModel)]="gearForm.costInCogs" min="0" name="gearCost" />
-            </label>
-            <label>
-              Stock (leave blank for unlimited)
-              <input type="number" [(ngModel)]="gearForm.stockQuantity" min="0" name="gearStock" />
-            </label>
-            <label class="wide">
-              Description
-              <input type="text" [(ngModel)]="gearForm.description" maxlength="600" name="gearDescription" />
-            </label>
-            <label class="wide">
-              Flavor Text
-              <input type="text" [(ngModel)]="gearForm.flavorText" maxlength="300" name="gearFlavor" />
-            </label>
-            <label class="wide checkbox">
-              <input type="checkbox" [(ngModel)]="gearForm.isActive" name="gearActive" />
-              Available in bazaar
-            </label>
+        <article class="admin-card admin-card--wide forge-card">
+          <div class="card-head">
+            <h3>{{ editingGearItemId === null ? 'Forge New Gear' : 'Tune Existing Gear' }}</h3>
+            <span>Catalog Control</span>
           </div>
 
-          <div class="admin-actions">
-            <button type="button" class="btn btn-primary" (click)="saveGearItem()">Save Gear</button>
-            <button *ngIf="editingGearItemId !== null" type="button" class="btn btn-ghost" (click)="cancelGearEdit()">Cancel Edit</button>
-          </div>
-
-          <h4>Existing Gear Catalog</h4>
-          <ul class="gear-list">
-            <li *ngFor="let item of adminGearItems">
-              <div>
-                <strong>{{ item.name }}</strong>
-                <small>{{ item.gearType }} - {{ item.costInCogs }} cogs</small>
+          <div class="forge-layout">
+            <div class="forge-form">
+              <div class="form-grid">
+                <label>
+                  Name
+                  <input type="text" [(ngModel)]="gearForm.name" maxlength="120" name="gearName" />
+                </label>
+                <label>
+                  Type
+                  <input type="text" [(ngModel)]="gearForm.gearType" maxlength="60" name="gearType" />
+                </label>
+                <label>
+                  Cost In Cogs
+                  <input type="number" [(ngModel)]="gearForm.costInCogs" min="0" name="gearCost" />
+                </label>
+                <label>
+                  Stock (leave blank for unlimited)
+                  <input type="number" [(ngModel)]="gearForm.stockQuantity" min="0" name="gearStock" />
+                </label>
+                <label class="wide">
+                  Description
+                  <input type="text" [(ngModel)]="gearForm.description" maxlength="600" name="gearDescription" />
+                </label>
+                <label class="wide">
+                  Flavor Text
+                  <input type="text" [(ngModel)]="gearForm.flavorText" maxlength="300" name="gearFlavor" />
+                </label>
+                <label class="wide checkbox">
+                  <input type="checkbox" [(ngModel)]="gearForm.isActive" name="gearActive" />
+                  Available in bazaar
+                </label>
               </div>
-              <button type="button" class="btn btn-secondary" (click)="startEditGearItem(item)">Edit</button>
-            </li>
-          </ul>
+
+              <div class="admin-actions">
+                <button type="button" class="btn btn-primary" (click)="saveGearItem()">Save Gear</button>
+                <button *ngIf="editingGearItemId !== null" type="button" class="btn btn-ghost" (click)="cancelGearEdit()">Cancel Edit</button>
+              </div>
+            </div>
+
+            <div class="forge-catalog">
+              <h4>Existing Gear Catalog</h4>
+              <ul class="gear-list">
+                <li *ngFor="let item of adminGearItems">
+                  <div>
+                    <strong>{{ item.name }}</strong>
+                    <small>
+                      {{ item.gearType }} • {{ item.costInCogs }} cogs •
+                      {{ item.stockQuantity === null || item.stockQuantity === undefined ? 'Unlimited stock' : 'Stock: ' + item.stockQuantity }} •
+                      {{ item.isActive ? 'Live' : 'Offline' }}
+                    </small>
+                  </div>
+                  <button type="button" class="btn btn-secondary" (click)="startEditGearItem(item)">Edit</button>
+                </li>
+              </ul>
+            </div>
+          </div>
         </article>
       </div>
     </section>

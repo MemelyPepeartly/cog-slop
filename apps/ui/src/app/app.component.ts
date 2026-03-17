@@ -67,6 +67,26 @@ export class AppComponent implements OnInit {
     return this.pilot?.isAdmin ?? false;
   }
 
+  get liveCogBalance(): number {
+    return this.pilot?.cogBalance ?? 0;
+  }
+
+  get adminHeadcount(): number {
+    return this.adminUsers.length;
+  }
+
+  get cogCirculation(): number {
+    return this.adminUsers.reduce((total, user) => total + user.cogBalance, 0);
+  }
+
+  get selectedGrantCogsTarget(): AdminUserSummary | null {
+    return this.adminUsers.find(x => x.userAccountId === this.grantCogsForm.userAccountId) ?? null;
+  }
+
+  get selectedGrantGearTarget(): AdminUserSummary | null {
+    return this.adminUsers.find(x => x.userAccountId === this.grantGearForm.userAccountId) ?? null;
+  }
+
   signIn(): void {
     this.infoMessage = 'Routing to Google sign-in...';
     this.api.startGoogleLogin();
