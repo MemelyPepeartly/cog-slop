@@ -12,6 +12,7 @@ import {
   UpsertGearPayload,
   UserProfile
 } from './models/economy.models';
+import { appSettings } from './app.settings';
 import { EconomyApiService } from './services/economy-api.service';
 
 @Component({
@@ -23,6 +24,7 @@ import { EconomyApiService } from './services/economy-api.service';
 })
 export class AppComponent implements OnInit {
   private readonly api = inject(EconomyApiService);
+  readonly apiBaseUrl = appSettings.apiBaseUrl;
 
   isLoading = true;
   isAuthenticated = false;
@@ -66,6 +68,7 @@ export class AppComponent implements OnInit {
   }
 
   signIn(): void {
+    this.infoMessage = 'Routing to Google sign-in...';
     this.api.startGoogleLogin();
   }
 
@@ -107,6 +110,7 @@ export class AppComponent implements OnInit {
         this.dashboard = null;
         this.adminUsers = [];
         this.adminGearItems = [];
+        this.infoMessage = 'Session state: signed out.';
         return;
       }
 

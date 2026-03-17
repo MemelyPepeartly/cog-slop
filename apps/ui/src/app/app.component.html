@@ -2,6 +2,20 @@
   <div class="orbit-ring orbit-ring--one"></div>
   <div class="orbit-ring orbit-ring--two"></div>
 
+  <section class="panel session-bar">
+    <div class="session-copy">
+      <p class="session-kicker">Session Clutch</p>
+      <h2>{{ isAuthenticated ? 'Signed In' : 'Signed Out' }}</h2>
+      <p *ngIf="isAuthenticated && pilot as user">Pilot: {{ user.displayName }} ({{ user.email }})</p>
+      <p *ngIf="!isAuthenticated">No active Google session detected.</p>
+      <small>API target: {{ apiBaseUrl }}</small>
+    </div>
+    <div class="session-actions">
+      <button type="button" class="btn btn-secondary" (click)="refreshAll()">Check Session</button>
+      <button *ngIf="!isAuthenticated" type="button" class="btn btn-primary" (click)="signIn()">Sign In</button>
+      <button *ngIf="isAuthenticated" type="button" class="btn btn-ghost" (click)="signOut()">Sign Out</button>
+    </div>
+  </section>
   <header class="masthead panel">
     <p class="eyebrow">Cog Slop</p>
     <h1>Spin Up The Cog Economy</h1>
