@@ -18,6 +18,10 @@ public class GearItem
 
     public string? FlavorText { get; set; }
 
+    public int? CraftedByUserAccountId { get; set; }
+
+    public bool IsPlayerCrafted { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime UpdatedAtUtc { get; set; }
@@ -25,4 +29,8 @@ public class GearItem
     public ICollection<UserInventory> UserInventories { get; set; } = new List<UserInventory>();
 
     public ICollection<CogTransaction> CogTransactions { get; set; } = new List<CogTransaction>();
+
+    public UserAccount? CraftedByUserAccount { get; set; }
+
+    public ICollection<MarketplaceListing> MarketplaceListings { get; set; } = new List<MarketplaceListing>();
 }

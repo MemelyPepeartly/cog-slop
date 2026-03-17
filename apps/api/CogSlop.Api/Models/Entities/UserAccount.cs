@@ -23,4 +23,12 @@ public class UserAccount
     public ICollection<CogTransaction> GrantedCogTransactions { get; set; } = new List<CogTransaction>();
 
     public ICollection<UserInventory> UserInventories { get; set; } = new List<UserInventory>();
+
+    public ICollection<CogSession> CogSessions { get; set; } = new List<CogSession>();
+
+    public ICollection<GearItem> CraftedGearItems { get; set; } = new List<GearItem>();
+
+    public ICollection<MarketplaceListing> MarketplaceListingsAsSeller { get; set; } = new List<MarketplaceListing>();
+
+    public ICollection<MarketplaceListing> MarketplaceListingsAsBuyer { get; set; } = new List<MarketplaceListing>();
 }
