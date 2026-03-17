@@ -276,6 +276,15 @@ public class AdminService(
         settings.UpdatedAtUtc = DateTime.UtcNow;
         settings.UpdatedByUserAccountId = admin.UserAccountId;
 
+        var openSessions = await dbContext.CogSessions
+            .Where(x => x.CogOutAtUtc == null)
+            .ToListAsync(cancellationToken);
+
+        foreach (var session in openSessions)
+        {
+            session.WarningIntervalMinutesAtCogIn = request.WarningIntervalMinutes;
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return await BuildRuntimeSettingsDtoAsync(settings, cancellationToken);
     }
