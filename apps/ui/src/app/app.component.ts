@@ -15,6 +15,8 @@ import {
 import { appSettings } from './app.settings';
 import { EconomyApiService } from './services/economy-api.service';
 
+type CogPage = 'pilot' | 'shop' | 'locker' | 'admin';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -30,6 +32,7 @@ export class AppComponent implements OnInit {
   isAuthenticated = false;
   errorMessage = '';
   infoMessage = '';
+  activePage: CogPage = 'pilot';
 
   dashboard: DashboardResponse | null = null;
   adminUsers: AdminUserSummary[] = [];
@@ -87,6 +90,18 @@ export class AppComponent implements OnInit {
     return this.adminUsers.find(x => x.userAccountId === this.grantGearForm.userAccountId) ?? null;
   }
 
+  setPage(page: CogPage): void {
+    if (page === 'admin' && !this.hasAdminPanel) {
+      return;
+    }
+
+    this.activePage = page;
+  }
+
+  isPage(page: CogPage): boolean {
+    return this.activePage === page;
+  }
+
   signIn(): void {
     this.infoMessage = 'Routing to Google sign-in...';
     this.api.startGoogleLogin();
@@ -105,6 +120,7 @@ export class AppComponent implements OnInit {
     this.dashboard = null;
     this.adminUsers = [];
     this.adminGearItems = [];
+    this.activePage = 'pilot';
     this.infoMessage = 'Clutch released. Come back when you are ready to crank again.';
   }
 
@@ -130,6 +146,7 @@ export class AppComponent implements OnInit {
         this.dashboard = null;
         this.adminUsers = [];
         this.adminGearItems = [];
+        this.activePage = 'pilot';
         this.infoMessage = 'Session state: signed out.';
         return;
       }
@@ -139,6 +156,8 @@ export class AppComponent implements OnInit {
 
       if (dashboard.pilot.isAdmin) {
         await this.loadAdminPanel();
+      } else if (this.activePage === 'admin') {
+        this.activePage = 'pilot';
       }
     } catch (error) {
       this.captureError(error, 'The control deck jammed while loading.');

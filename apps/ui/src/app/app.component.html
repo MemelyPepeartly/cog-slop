@@ -3,6 +3,7 @@
     <span class="gear gear--ghost gear-spin g1"></span>
     <span class="gear gear--ghost gear-reverse g2"></span>
     <span class="gear gear--ghost gear-spin g3"></span>
+    <span class="gear gear--ghost gear-reverse g4"></span>
   </div>
 
   <section class="panel torque-rail">
@@ -51,33 +52,45 @@
     <small class="api-target">API target: {{ apiBaseUrl }}</small>
   </section>
 
-  <header class="panel cult-banner">
-    <div class="banner-copy">
+  <header class="panel hero-bay">
+    <div class="hero-copy">
       <p class="eyebrow">Cog Slop | Worship The Wheel</p>
       <h1>Everything Works Like A Gear</h1>
       <p>
-        This is not subtle. This is not normal. This is a joke site where cogs run society,
-        cogs run commerce, and cogs probably run your taxes.
+        Welcome to the machine church. Pick a page, spin a cog, and pretend this is a rational economy.
       </p>
-
-      <div class="chant-strip" aria-hidden="true">
-        <span>ALL HAIL THE COG</span>
-        <span>SPIN TO WIN</span>
-        <span>TEETH TOGETHER STRONG</span>
-      </div>
-
-      <div class="banner-actions">
+      <div class="hero-actions">
         <button type="button" class="btn btn-secondary" (click)="refreshAll()">Recalibrate Deck</button>
         <button *ngIf="!isAuthenticated" type="button" class="btn btn-primary" (click)="signIn()">Crank In With Google</button>
       </div>
     </div>
 
-    <div class="banner-reactor" aria-hidden="true">
+    <div class="hero-reactor" aria-hidden="true">
       <span class="gear gear--xl gear-spin"></span>
       <span class="gear gear--lg gear-reverse"></span>
       <span class="gear gear--md gear-spin"></span>
     </div>
   </header>
+
+  <section *ngIf="!isLoading && isAuthenticated" class="panel page-nav">
+    <button type="button" class="tab-btn" [class.tab-btn--active]="isPage('pilot')" (click)="setPage('pilot')">
+      Pilot Console
+    </button>
+    <button type="button" class="tab-btn" [class.tab-btn--active]="isPage('shop')" (click)="setPage('shop')">
+      Gear Shop
+    </button>
+    <button type="button" class="tab-btn" [class.tab-btn--active]="isPage('locker')" (click)="setPage('locker')">
+      Gear Locker
+    </button>
+    <button
+      *ngIf="hasAdminPanel"
+      type="button"
+      class="tab-btn"
+      [class.tab-btn--active]="isPage('admin')"
+      (click)="setPage('admin')">
+      Admin Cathedral
+    </button>
+  </section>
 
   <section *ngIf="isLoading" class="panel loading-state">
     <h2>Synchronizing Gigglebox</h2>
@@ -101,39 +114,59 @@
   </section>
 
   <ng-container *ngIf="!isLoading && isAuthenticated && pilot as user">
-    <section class="panel profile-plate">
-      <div class="pilot-title">
-        <img *ngIf="user.avatarUrl" [src]="user.avatarUrl" alt="Pilot avatar" />
-        <div>
-          <h2>{{ user.displayName }}</h2>
-          <p>{{ user.email }}</p>
-          <div class="role-pills">
-            <span class="role-pill" *ngFor="let role of user.roles">{{ role }}</span>
-          </div>
-        </div>
-      </div>
+    <section *ngIf="isPage('pilot')" class="panel page-shell pilot-page">
+      <header class="section-head">
+        <h2>Pilot Console</h2>
+        <p>Your personal cog status and immediate machine controls.</p>
+      </header>
 
-      <div class="stats-grid">
-        <article>
-          <h3>Cog Balance</h3>
-          <p>{{ user.cogBalance }}</p>
+      <div class="pilot-layout">
+        <article class="pilot-card">
+          <div class="pilot-title">
+            <img *ngIf="user.avatarUrl" [src]="user.avatarUrl" alt="Pilot avatar" />
+            <div>
+              <h3>{{ user.displayName }}</h3>
+              <p>{{ user.email }}</p>
+              <div class="role-pills">
+                <span class="role-pill" *ngFor="let role of user.roles">{{ role }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <article>
+              <h4>Cog Balance</h4>
+              <p>{{ user.cogBalance }}</p>
+            </article>
+            <article>
+              <h4>Inventory Count</h4>
+              <p>{{ user.inventory.length }}</p>
+            </article>
+            <article>
+              <h4>Admin Access</h4>
+              <p>{{ user.isAdmin ? 'Enabled' : 'Denied' }}</p>
+            </article>
+          </div>
         </article>
-        <article>
-          <h3>Inventory Count</h3>
-          <p>{{ user.inventory.length }}</p>
-        </article>
-        <article>
-          <h3>Admin Access</h3>
-          <p>{{ user.isAdmin ? 'Enabled' : 'Denied' }}</p>
+
+        <article class="pilot-card quick-nav">
+          <h3>Quick Warp</h3>
+          <p>Jump directly to your next ridiculous task.</p>
+          <div class="quick-nav-actions">
+            <button type="button" class="btn btn-secondary" (click)="setPage('shop')">Open Gear Shop</button>
+            <button type="button" class="btn btn-secondary" (click)="setPage('locker')">Open Gear Locker</button>
+            <button *ngIf="hasAdminPanel" type="button" class="btn btn-secondary" (click)="setPage('admin')">Open Admin</button>
+          </div>
         </article>
       </div>
     </section>
 
-    <section class="panel bazaar-bay">
+    <section *ngIf="isPage('shop')" class="panel page-shell shop-page">
       <header class="section-head">
         <h2>Gear Bazaar</h2>
         <p>Acquire cursed trinkets and economically questionable upgrades.</p>
       </header>
+
       <div class="store-grid">
         <article class="gear-card" *ngFor="let item of storeFront" [class.gear-card--ready]="item.costInCogs <= user.cogBalance">
           <p class="gear-type">{{ item.gearType }}</p>
@@ -154,7 +187,7 @@
       </div>
     </section>
 
-    <section class="panel locker-bay">
+    <section *ngIf="isPage('locker')" class="panel page-shell locker-page">
       <header class="section-head">
         <h2>Cog Locker</h2>
         <p>Proof of every strange item you somehow justified buying.</p>
@@ -169,11 +202,11 @@
       </ul>
     </section>
 
-    <section *ngIf="hasAdminPanel" class="panel admin-cathedral">
+    <section *ngIf="hasAdminPanel && isPage('admin')" class="panel page-shell admin-page">
       <header class="admin-header">
         <p class="eyebrow">Command Gearbox</p>
         <h2>Ridiculous Admin Control Cathedral</h2>
-        <p>Pull levers, adjust balances, pretend this is a serious financial instrument.</p>
+        <p>Pull levers, adjust balances, and manage the cog market from dedicated modules.</p>
       </header>
 
       <div class="admin-gear-grid">
@@ -327,6 +360,3 @@
     </section>
   </ng-container>
 </main>
-
-
-
