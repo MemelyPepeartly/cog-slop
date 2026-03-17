@@ -1,3 +1,3 @@
 export const appSettings = {
-  apiBaseUrl: 'https://localhost:7298'
+  apiBaseUrl: 'https://cog-slop.azurewebsites.net'
 };
