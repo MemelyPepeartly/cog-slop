@@ -31,4 +31,6 @@ public class UserAccount
     public ICollection<MarketplaceListing> MarketplaceListingsAsSeller { get; set; } = new List<MarketplaceListing>();
 
     public ICollection<MarketplaceListing> MarketplaceListingsAsBuyer { get; set; } = new List<MarketplaceListing>();
+
+    public ICollection<CogRuntimeSetting> UpdatedCogRuntimeSettings { get; set; } = new List<CogRuntimeSetting>();
 }

@@ -10,6 +10,14 @@ public class CogSession
 
     public DateTime? CogOutAtUtc { get; set; }
 
+    public int WarningIntervalMinutesAtCogIn { get; set; }
+
+    public int SuccessfulCogChecks { get; set; }
+
+    public bool AutoCogOutNoPayout { get; set; }
+
+    public int? PayoutCogs { get; set; }
+
     public string? CogInNote { get; set; }
 
     public string? CogOutNote { get; set; }
